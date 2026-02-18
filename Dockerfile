@@ -1,6 +1,6 @@
 FROM php:8.3-fpm-alpine
 
-# Instalar dependencias del sistema necesarias para compilar extensiones
+# Instalar dependencias del sistema y herramientas de compilación
 RUN apk add --no-cache \
     nginx \
     libpng-dev \
@@ -13,9 +13,10 @@ RUN apk add --no-cache \
     oniguruma-dev \
     linux-headers \
     sqlite-dev \
+    libxml2-dev \
     $PHPIZE_DEPS
 
-# Instalar extensiones de PHP
+# Instalar extensiones de PHP (Agrupadas para optimizar el build)
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
     gd \
@@ -26,26 +27,29 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     exif \
     pcntl \
     bcmath \
-    intl
+    intl \
+    opcache
 
 # Instalar Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Configurar directorio de trabajo
 WORKDIR /var/www/html
 
-# Copiar el código del proyecto
+# Copiar archivos de dependencias primero (aprovechar caché de Docker)
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-scripts --no-autoloader
+
+# Copiar el resto del código
 COPY . .
 
-# Instalar dependencias de Composer
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+# Finalizar instalación de composer
+RUN composer dump-autoload --optimize
 
-# Asegurar permisos y preparar SQLite
+# Permisos para SQLite y Laravel
 RUN mkdir -p storage/database \
     && touch storage/database/database.sqlite \
     && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
 EXPOSE 8000
 
-# Comando de inicio
 CMD php artisan config:clear && php artisan serve --host=0.0.0.0 --port=8000
