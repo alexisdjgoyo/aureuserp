@@ -1,0 +1,30 @@
+services:
+  app:
+    # Si conectas tu Fork en Dokploy, él se encargará de buildear la imagen.
+    # Si prefieres usar la imagen oficial pero con tu código, usa: image: aureuserp/aureuserp:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      - APP_NAME=AureusERP
+      - APP_ENV=production
+      - APP_URL=https://inventario.30042022.xyz # Tu subdominio
+      # CONFIGURACIÓN SQLITE
+      - DB_CONNECTION=sqlite
+      - DB_DATABASE=/var/www/html/storage/database/database.sqlite
+      # VITAL PARA EL SSL EN DOKPLOY
+      - TRUSTED_PROXIES=*
+      - APP_FORCE_HTTPS=true
+    volumes:
+      # Volumen para persistir la base de datos SQLite y archivos subidos
+      - aureus_data:/var/www/html/storage
+    networks:
+      - dokploy-network
+
+volumes:
+  aureus_data:
+
+networks:
+  dokploy-network:
+    external: true
